@@ -1,0 +1,172 @@
+###############################################################################
+##import libraries
+library(pacman)
+p_load(dplyr, tidyverse,stringr, openxlsx)
+
+###############################################################################
+##Create Urban-Rural Dummy
+admindata<-read.xlsx('/Users/jansmuts/Desktop/International Economics/Advanced Development Economics/Group Project/Data/administrative-data/bgd_adminboundaries_tabulardata.xlsx', sheet="ADM3")
+
+urban<-c("Saidpur", "Feni", "Brahmanbaria", "Faridpur", "Dinajpur", "Kushtia", "Pabna", "Tangail", "Mymensingh", "Jessore", "Barisal", "Bogra", "Comilla", "Rangpur", "Rajshahi", "Sylhet", "Khulna", "Narayanganj", "Gazipur", "Chittagong", "Dhaka")
+admindata$ruralurban<-ifelse(admindata$ADM2_EN %in% urban, 1, 0)
+colnames(admindata)[colnames(admindata)=="ruralurban"]<-"urban"
+
+columns<-c("ADM3_EN", "ADM3_PCODE", "ADM2_EN","ADM2_PCODE", "ADM1_EN", "ADM1_PCODE", "urban")
+admindata <- admindata[, columns]
+
+###############################################################################
+##Create flood-prone Dummy
+floodprone<-c("Lalmonirhat", "Kurigram", "Nilphamari", "Rangpur", "Gaibandha", "Bogra", "Sirajganj", "Jamalpur", "Sherpur", "Sunamganj", "Sylhet", "Netrokona", "Munshiganj", "Tangail", "Faridpur", "Manikganj", "Rajbari")
+admindata$floodprone<-ifelse(admindata$ADM2_EN %in% floodprone, 1, 0)
+
+##Summarize admin data
+sum_matrix<-matrix(c(sum(admindata$floodprone==1 & admindata$urban==1), 
+                     sum(admindata$floodprone==0 & admindata$urban==1), 
+                     sum(admindata$floodprone==1 & admindata$urban==0), 
+                     sum(admindata$floodprone==0 & admindata$urban==0)), 
+                   2, 2)
+
+print(sum_matrix) ##f/u, f/r
+##n/u, n/r
+##130 floodprone, 414 non-floodprone. 
+##303 Rural, 141 urban
+
+##Find Duplicates
+length(unique(admindata$ADM3_EN)) ##527 names
+length(unique(admindata$ADM3_PCODE)) ##544 postcodes
+##names
+dups<-data.frame(table(admindata$ADM3_EN))
+admindata[admindata$ADM3_EN %in% dups$Var1[dups$Freq>1], 1]
+##codes
+dups_pcode<-data.frame(table(admindata$ADM3_PCODE))
+admindata[admindata$ADM3_PCODE %in% dups_pcode$Var1[dups_pcode$Freq>1], 1]
+
+##no postcode duplicates, some names are the same. 
+
+###############################################################################
+##Load BIHS data
+bihs_df<-read.delim('/Users/jansmuts/Desktop/International Economics/Advanced Development Economics/Group Project/Data/2011-bihs/a1_2011.tab')
+
+##Create Initial inner as bihs_merged
+bihs_merged<-merge(bihs_df, admindata, by.x="Upazila_Name",  by.y="ADM3_EN") 
+
+##ensure individuals are in inner by joining to b1_2011
+b1_2011<-read.delim('/Users/jansmuts/Desktop/International Economics/Advanced Development Economics/Group Project/Data/2011-bihs/b1_2011.tab')
+bihs_merged<-merge(bihs_df, b1_2011, by="a01")
+
+##add urban dummy
+urban<-c("Saidpur", "Feni", "Brahmanbaria", "Faridpur", "Dinajpur", "Kushtia", "Pabna", "Tangail", "Mymensingh", "Jessore", "Barisal", "Bogra", "Comilla", "Rangpur", "Rajshahi", "Sylhet", "Khulna", "Narayanganj", "Gazipur", "Chittagong", "Dhaka")
+bihs_merged$urban<-ifelse(bihs_merged$div_name %in% urban, 1, 0)
+
+##add flooding dummy
+floodprone<-c("Lalmonirhat", "Kurigram", "Nilphamari", "Rangpur", "Gaibandha", "Bogra", "Sirajganj", "Jamalpur", "Sherpur", "Sunamganj", "Sylhet", "Netrokona", "Munshiganj", "Tangail", "Faridpur", "Manikganj", "Rajbari")
+bihs_merged$flood<-ifelse(bihs_merged$div_name %in% floodprone, 1, 0)
+
+write_csv(bihs_merged, '/Users/jansmuts/Desktop/International Economics/Advanced Development Economics/Group Project/Data/bihs_merged/bihs_merged.csv')
+
+##Make bihs_merged0 in case of errors
+bihs_merged0<-bihs_merged %>%
+  filter(!duplicated(.[, c("a01", "mid")])) %>% ##drop duplicates
+  filter(!is.na(a01) & !is.na(mid)) %>% ##drop NA vals
+  mutate(a01=as.character(a01), 
+         mid=as.character(mid))##make characters
+##save 
+
+
+##Create all the paths for years
+concatyear<-c()
+for (y1 in c("2011-bihs", "2015-bihs", "2019-bihs")){
+  temp1<-paste("/Users/jansmuts/Desktop/International Economics/Advanced Development Economics/Group Project/Data/", y1, "/", sep="")
+  concatyear<-c(concatyear, temp1)
+}
+print(concatyear)
+
+###############################################################################
+
+##Create all the paths for individual modules in each year
+##b1, b2, c, e, v1
+##g, k1, n, q, z1, j1, j2, s, t1 will be re-added in later merging process
+
+module_df_i <- data.frame(path = character(), year = character(), module = character())
+for (year_path in concatyear){
+  year<-str_extract(year_path, "\\d{4}")
+  for (mod in c("b1", "b2", "c", "e", "v1")){
+  temp<- paste(year_path, mod, "_", year,".tab", sep=""  )
+  module_df_i<-rbind(module_df_i, data.frame(path = temp, year = year, module = mod))
+  }
+}
+
+
+##module_df0 is modified to omit v1 in 2011. No migration in initial period
+module_df0_i<-module_df_i[!module_df_i$path %in% c("/Users/jansmuts/Desktop/International Economics/Advanced Development Economics/Group Project/Data/2011-bihs/v1_2011.tab", "/Users/jansmuts/Desktop/International Economics/Advanced Development Economics/Group Project/Data/2011-bihs/b1_2011.tab"), ]
+
+###############################################################################
+##Check for missing identifiers
+##Generated using Claude
+for (i in 1:nrow(module_df0_i)){
+  print(paste("Processing iteration", i))
+  temp_df <- read.delim(module_df0_i[i, 1])
+  
+  if (!"mid" %in% names(temp_df)) {
+    print(paste("WARNING: 'mid' not found in file:", module_df0_i[i, 2:3]))
+  }
+  if (!"a01" %in% names(temp_df)) {
+    print(paste("WARNING: 'a01' not found in file:", module_df0_i[i, 2:3]))
+  }
+}
+
+###############################################################################
+
+for (i in 1:nrow(module_df0_i)){
+  temp_df<-read.delim(module_df0_i[i, 1])
+  year<- module_df0_i[i, 2]
+  ##Code for removing the suffix from mid. 
+  mid_col <- grep("^mid", names(temp_df), value = TRUE)
+  if (length(mid_col) > 0) {
+    names(temp_df)[names(temp_df) == mid_col[1]] <- "mid"
+  }
+  names(temp_df)[which(!names(temp_df) %in% c("a01", "censusno", "mid", "a1_01", "a1_02", "a1_03", "a1_04", "a1_05", "a1_06", "a1_07"))] <- paste(names(temp_df)[which(!names(temp_df) %in% c("a01", "censusno", "mid", "a1_01", "a1_02", "a1_03", "a1_04", "a1_05", "a1_06", "a1_07"))], year, sep="_")
+  temp_df <- temp_df %>%
+    filter(!duplicated(.[, c("a01", "mid")])) %>% ##drop duplicates
+    filter(!is.na(a01) & !is.na(mid)) %>% ##drop NA vals
+    mutate(a01=as.character(a01), 
+           mid=as.character(mid))##make characters
+  bihs_merged0<-merge(bihs_merged0, temp_df, by=c("a01", "mid"), all.x = TRUE)
+}
+
+###############################################################################
+
+##now add household-level modules
+##g, k1, n, q, z1, j1, j2, s, t1 
+
+
+##generate path dataframe
+module_df_h <- data.frame(path = character(), year = character(), module = character())
+for (year_path in concatyear){
+  year<-str_extract(year_path, "\\d{4}")
+  for (mod in c("g", "k1", "n", "q", "z1", "j1", "j2", "s", "t1")){
+    temp<- paste(year_path, mod, "_", year,".tab", sep=""  )
+    module_df_h<-rbind(module_df_h, data.frame(path = temp, year = year, module = mod))
+  }
+}
+
+
+##merge with individual-level modules
+##no mid needed
+module_df0_h<-module_df_h
+for (i in 1:nrow(module_df0_h)){
+  temp_df<-read.delim(module_df0_h[i, 1])
+  year<- module_df0_h[i, 2]
+  names(temp_df)[which(!names(temp_df) %in% c("a01", "censusno", "mid", "a1_01", "a1_02", "a1_03", "a1_04", "a1_05", "a1_06", "a1_07"))] <- paste(names(temp_df)[which(!names(temp_df) %in% c("a01", "censusno", "mid", "a1_01", "a1_02", "a1_03", "a1_04", "a1_05", "a1_06", "a1_07"))], year, sep="_")
+  temp_df <- temp_df %>%
+    filter(!duplicated(.[, "a01"])) %>% ##drop duplicates
+    filter(!is.na(a01)) %>% ##drop NA vals
+    mutate(a01=as.character(a01))##make characters
+  bihs_merged0<-merge(bihs_merged0, temp_df, by="a01", all.x = TRUE)
+}
+
+str(bihs_merged0)
+
+"flood" %in% colnames(bihs_merged0)
+
+##fin
