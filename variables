@@ -1,0 +1,75 @@
+# **VARIABLES OF INTEREST**
+
+urban - rural/urban dummy
+flood - live in flooded region
+
+
+##Module A: Household Identification
+
+a01  - Household Identification number (6503 households)
+mid - Member ID (
+
+div - Division name (7 Divisions)
+dcode - Division code
+
+District_Name - District name (64 districts)
+District - District code
+
+ 
+Upazila_Name - Upazila name (279 UZ's)
+Upazila - Upazila code
+
+Union_Name - Union name (318 unions)
+Union - Union code
+
+a11 - name of household head
+a13 - religion
+
+##Module B: Household Composition and Education
+
+b1_01 - sex
+b1_02 - age
+b1_07 - literacy 
+b1_08 - education
+b1_09 - attending school/college
+b1_10 - current main occupation
+b1_11 - work in rural/urban
+
+##Module C: Employment
+
+c14 - monthly/average salary
+
+##Module J1: Agricultural Extension Services
+j1_01 - visited by government agent
+j1_04 - visited government office
+
+##Module J2: Agricultural Subsidty
+j2_01 - agriculture input subsidy
+
+##Module N: Non-Agricultural enterprise
+n_1 - has anyone owned, operated or received non-farm economic activity
+
+##Module Q: Housing
+q01 - own, rent or free
+q03 - rental estimate
+
+##Module S: Facilities
+s01_02 - bus stop
+s01_03 - main road
+s01_04 - railway station
+s05 - distance (hours)
+
+##Module T: Events/shocks
+t1_02 - shocks 
+
+##Module V: Migration, Remittances, Transfer and Other Income
+v1_01 - any migration
+v1_05 - age
+v1_06 - sex
+v1_07 - education 
+v1_09 - internal vs external emigration
+v1_10 - upazila code
+
+##Module Z: Women's Status
+z_2 - marital status code
+z1_01 - female working
